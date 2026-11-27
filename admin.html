@@ -174,28 +174,55 @@
 
     <!-- ==================== TAB 2: LOG & RIWAYAT PRESENSI ==================== -->
     <section id="tabRecords" class="space-y-4 hidden">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-pln-navy/60 p-4 rounded-2xl border border-slate-800">
-        <div>
-          <h2 class="text-base font-black text-white">Riwayat Presensi Biometrik</h2>
-          <p class="text-xs text-slate-400">Semua aktivitas absensi masuk dan pulang pegawai.</p>
+      <div class="bg-pln-navy/80 p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          <div>
+            <h2 class="text-base font-black text-white">Riwayat Presensi Biometrik</h2>
+            <p class="text-xs text-slate-400">Filter berdasarkan rentang tanggal atau tipe absensi sebelum mencetak / export laporan.</p>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <button onclick="AdminApp.exportCSV()" class="py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition-all flex items-center space-x-1.5">
+              <span>📥</span>
+              <span>Export ke Excel / CSV</span>
+            </button>
+
+            <button onclick="AdminApp.clearRecords()" class="py-2.5 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all">
+              🗑️ Hapus Semua Log
+            </button>
+          </div>
         </div>
 
-        <!-- Filter & Tombol Export -->
-        <div class="flex flex-wrap items-center gap-2">
-          <select id="filterMode" onchange="AdminApp.filterRecords()" class="py-2 px-3 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200">
+        <!-- Filter Bar: Tanggal Mulai s/d Tanggal Selesai & Mode -->
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <!-- Preset Cepat -->
+          <div class="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800 space-x-1">
+            <button type="button" onclick="AdminApp.setDatePreset('today')" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 font-semibold transition-all">Hari Ini</button>
+            <button type="button" onclick="AdminApp.setDatePreset('7days')" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 font-semibold transition-all">7 Hari</button>
+            <button type="button" onclick="AdminApp.setDatePreset('month')" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 font-semibold transition-all">Bulan Ini</button>
+            <button type="button" onclick="AdminApp.setDatePreset('all')" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 font-semibold transition-all">Semua</button>
+          </div>
+
+          <!-- Input Rentang Tanggal -->
+          <div class="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+            <span class="text-slate-400 font-bold">Dari:</span>
+            <input type="date" id="filterStartDate" onchange="AdminApp.filterRecords()" class="bg-transparent text-white font-mono focus:outline-none text-xs" />
+          </div>
+
+          <div class="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+            <span class="text-slate-400 font-bold">Sampai:</span>
+            <input type="date" id="filterEndDate" onchange="AdminApp.filterRecords()" class="bg-transparent text-white font-mono focus:outline-none text-xs" />
+          </div>
+
+          <!-- Filter Mode IN / OUT -->
+          <select id="filterMode" onchange="AdminApp.filterRecords()" class="py-2 px-3 rounded-xl bg-slate-900 border border-slate-800 text-xs font-bold text-slate-200">
             <option value="ALL">Semua Mode (IN & OUT)</option>
-            <option value="IN">Khusus Masuk (IN)</option>
-            <option value="OUT">Khusus Pulang (OUT)</option>
+            <option value="IN">⚡ Khusus Masuk (IN)</option>
+            <option value="OUT">🚪 Khusus Pulang (OUT)</option>
           </select>
 
-          <button onclick="AdminApp.exportCSV()" class="py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition-all flex items-center space-x-1.5">
-            <span>📥</span>
-            <span>Export ke Excel / CSV</span>
-          </button>
-
-          <button onclick="AdminApp.clearRecords()" class="py-2 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all">
-            🗑️ Bersihkan Log
-          </button>
+          <!-- Label Hasil Filter -->
+          <span id="filterResultLabel" class="text-slate-400 font-mono text-[11px] ml-auto">Menampilkan 0 baris</span>
         </div>
       </div>
 

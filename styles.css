@@ -109,6 +109,11 @@
   border-color: #10b981;
 }
 
+.live-warning .corner-bracket {
+  border-color: #f59e0b;
+  animation: electricPulse 1.2s infinite;
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

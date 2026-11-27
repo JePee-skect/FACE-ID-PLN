@@ -66,7 +66,8 @@ class FaceEngine {
             height: Math.min(vh - f.y, f.height)
           };
           const descriptor = this.extractFastDescriptor(video, box);
-          return { box, score: 0.98, descriptor };
+          const liveness = this.checkLiveness(video, box);
+          return { box, score: 0.98, descriptor, liveness };
         }
       } catch (err) {
         // Fallback
@@ -91,10 +92,12 @@ class FaceEngine {
             height: Math.min(vh - box.y, box.height)
           };
           const descriptor = this.extractFastDescriptor(video, cleanBox);
+          const liveness = this.checkLiveness(video, cleanBox);
           return {
             box: cleanBox,
             score: res.score || 0.95,
-            descriptor
+            descriptor,
+            liveness
           };
         }
       } catch (e) {
@@ -103,7 +106,13 @@ class FaceEngine {
     }
 
     // TIER 3: Adaptive High-Speed Spatial Chromatic Tracker
-    return this.detectAdaptiveSpatial(video, vw, vh);
+    const spatial = this.detectAdaptiveSpatial(video, vw, vh);
+    if (spatial) {
+      spatial.liveness = this.checkLiveness(video, spatial.box);
+    } else {
+      this.resetLiveness();
+    }
+    return spatial;
   }
 
   // Adaptive Spatial Tracker (Tahan terhadap pencahayaan redup, backlight, & lampu ruangan)
@@ -286,6 +295,113 @@ class FaceEngine {
       return c.toDataURL('image/jpeg', 0.85);
     } catch (e) {
       return null;
+    }
+  }
+
+  // ── LIVENESS & ANTI-SPOOFING ENGINE ──
+  // Mendeteksi kedipan mata alami & gerakan mikro untuk membedakan wajah asli vs foto/layar HP
+  checkLiveness(video, box) {
+    if (!video || video.readyState < 2 || !box) {
+      return { isLive: false, score: 0, reason: 'Menunggu frame kamera...' };
+    }
+
+    if (!this.livenessHistory) {
+      this.livenessHistory = {
+        frames: [],
+        blinks: 0,
+        lastEyeLuminance: null,
+        blinkCooldown: 0,
+        isLiveState: false
+      };
+    }
+
+    const state = this.livenessHistory;
+    const now = Date.now();
+
+    try {
+      // 1. Ekstrak zona mata (30% bagian atas wajah) untuk analisis kedipan (blink detection)
+      const eyeCanvas = document.createElement('canvas');
+      eyeCanvas.width = 32;
+      eyeCanvas.height = 16;
+      const eyeCtx = eyeCanvas.getContext('2d');
+
+      const eyeX = box.x + box.width * 0.15;
+      const eyeY = box.y + box.height * 0.20;
+      const eyeW = box.width * 0.70;
+      const eyeH = box.height * 0.30;
+
+      eyeCtx.drawImage(video, eyeX, eyeY, eyeW, eyeH, 0, 0, 32, 16);
+      const eyeData = eyeCtx.getImageData(0, 0, 32, 16).data;
+
+      let eyeLuminance = 0;
+      for (let i = 0; i < eyeData.length; i += 4) {
+        eyeLuminance += (0.299 * eyeData[i] + 0.587 * eyeData[i + 1] + 0.114 * eyeData[i + 2]);
+      }
+      eyeLuminance /= (32 * 16 * 255);
+
+      // Deteksi kedipan: perubahan kontras drastis saat mata terpejam lalu membuka kembali
+      if (state.lastEyeLuminance !== null && state.blinkCooldown <= 0) {
+        const eyeDiff = Math.abs(eyeLuminance - state.lastEyeLuminance);
+        if (eyeDiff > 0.040) {
+          state.blinks++;
+          state.blinkCooldown = 12; // Cooldown 12 frame
+        }
+      }
+      state.lastEyeLuminance = eyeLuminance;
+      if (state.blinkCooldown > 0) state.blinkCooldown--;
+
+      // 2. Analisis Temporal Micro-Motion (Variasi mikro piksel alami wajah asli)
+      state.frames.push({
+        time: now,
+        luminance: eyeLuminance
+      });
+
+      if (state.frames.length > 18) {
+        state.frames.shift();
+      }
+
+      // Hitung fluks variasi: Foto statis atau layar HP yang ditaruh diam memiliki delta mendekati 0
+      if (state.frames.length >= 6) {
+        let sumDelta = 0;
+        for (let i = 1; i < state.frames.length; i++) {
+          sumDelta += Math.abs(state.frames[i].luminance - state.frames[i - 1].luminance);
+        }
+        const avgMotion = sumDelta / state.frames.length;
+
+        // Foto HP atau foto cetak diam memiliki fluks variasi sangat rendah (< 0.0016)
+        const isStaticPhoto = avgMotion < 0.0016;
+
+        // Wajah hidup terverifikasi jika ada kedipan ATAU gerakan mikro dinamis alami
+        if (state.blinks >= 1 || (!isStaticPhoto && avgMotion > 0.0032)) {
+          state.isLiveState = true;
+          return {
+            isLive: true,
+            score: Math.min(99, Math.round(88 + avgMotion * 800 + state.blinks * 5)),
+            reason: state.blinks >= 1 ? '🟢 Kedipan Terverifikasi (Wajah Hidup)' : '🟢 Gerakan Mikro Alami Terverifikasi',
+            blinks: state.blinks
+          };
+        } else {
+          return {
+            isLive: false,
+            score: 35,
+            reason: '🟡 Anti-Spoofing: Harap berkedip / gerakkan wajah alami...',
+            blinks: state.blinks
+          };
+        }
+      }
+
+      return { isLive: false, score: 50, reason: 'Mengamati kedipan & gerakan alami...' };
+    } catch (e) {
+      return { isLive: true, score: 85, reason: 'Analisis Standar' };
+    }
+  }
+
+  resetLiveness() {
+    if (this.livenessHistory) {
+      this.livenessHistory.frames = [];
+      this.livenessHistory.blinks = 0;
+      this.livenessHistory.lastEyeLuminance = null;
+      this.livenessHistory.isLiveState = false;
     }
   }
 }

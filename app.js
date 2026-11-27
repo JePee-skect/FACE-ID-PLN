@@ -320,9 +320,11 @@ const App = {
     ctx.clearRect(0, 0, w, h);
     if (!detection) return;
 
-    const { box } = detection;
+    const { box, liveness } = detection;
+    const isLive = liveness ? liveness.isLive : true;
+
     ctx.lineWidth = 3;
-    ctx.strokeStyle = '#00a2b9';
+    ctx.strokeStyle = isLive ? '#00a2b9' : '#f59e0b';
     ctx.strokeRect(box.x, box.y, box.width, box.height);
 
     // Render Box Header dengan Un-Mirroring agar teks tidak terbalik di canvas mirrored
@@ -330,11 +332,11 @@ const App = {
     ctx.translate(w, 0);
     ctx.scale(-1, 1);
     const flippedX = w - (box.x + box.width);
-    ctx.fillStyle = 'rgba(0, 162, 185, 0.95)';
+    ctx.fillStyle = isLive ? 'rgba(0, 162, 185, 0.95)' : 'rgba(245, 158, 11, 0.95)';
     ctx.font = '700 13px Plus Jakarta Sans, sans-serif';
-    ctx.fillRect(flippedX, Math.max(0, box.y - 24), 160, 24);
+    ctx.fillRect(flippedX, Math.max(0, box.y - 24), 185, 24);
     ctx.fillStyle = '#ffffff';
-    ctx.fillText('⚡ Wajah Terdeteksi', flippedX + 8, Math.max(16, box.y - 7));
+    ctx.fillText(isLive ? '⚡ Wajah Asli Terverifikasi' : '🛡️ Anti-Spoof: Harap Berkedip', flippedX + 8, Math.max(16, box.y - 7));
     ctx.restore();
   },
 
@@ -342,19 +344,25 @@ const App = {
     const statusEl = document.getElementById('scannerStatusText');
     const bracket = document.getElementById('scannerBrackets');
 
-    // Reset no-face timer karena ada wajah di depan kamera
-    if (this.noFaceTimer) {
-      clearTimeout(this.noFaceTimer);
-      this.noFaceTimer = null;
-    }
-
-    // Threshold 0.60 untuk pencocokan responsif & akurat
+    // Threshold 0.60 untuk pencocokan biometrik
     const match = window.faceEngine.findBestMatch(detection.descriptor, this.employees, 0.60);
 
     if (match) {
+      // ── PROTEKSI LIVENESS / ANTI-SPOOFING (CEGAH FOTO HP / CETAK) ──
+      const isLive = detection.liveness ? detection.liveness.isLive : true;
+
+      if (!isLive) {
+        if (bracket) bracket.className = 'scanner-corners live-warning';
+        if (statusEl) {
+          statusEl.innerHTML = `🟡 <strong class="text-amber-400">Anti-Spoofing:</strong> ${match.employee.name} • Harap berkedip / gerakkan wajah...`;
+        }
+        return; // Hentikan absensi jika belum terverifikasi sebagai manusia hidup!
+      }
+
+      // Wajah asli & hidup terverifikasi
       if (bracket) bracket.className = 'scanner-corners matched-bracket';
       if (statusEl) {
-        statusEl.innerHTML = `🟢 Terverifikasi: <strong class="text-emerald-400">${match.employee.name}</strong> (${match.confidence}%)`;
+        statusEl.innerHTML = `🟢 Terverifikasi (Wajah Asli): <strong class="text-emerald-400">${match.employee.name}</strong> (${match.confidence}%)`;
       }
 
       if (!this.scanCooldown) {

@@ -352,19 +352,62 @@ const AdminApp = {
     this.closeRegisterModal();
   },
 
-  // ── MANAJEMEN LOG PRESENSI ──
+  // ── MANAJEMEN LOG PRESENSI DENGAN FILTER TANGGAL ──
+  setDatePreset(type) {
+    const startInput = document.getElementById('filterStartDate');
+    const endInput = document.getElementById('filterEndDate');
+    const now = new Date();
+    const todayStr = this.getTodayString(now);
+
+    if (type === 'today') {
+      if (startInput) startInput.value = todayStr;
+      if (endInput) endInput.value = todayStr;
+    } else if (type === '7days') {
+      const past = new Date();
+      past.setDate(past.getDate() - 7);
+      if (startInput) startInput.value = this.getTodayString(past);
+      if (endInput) endInput.value = todayStr;
+    } else if (type === 'month') {
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      if (startInput) startInput.value = `${year}-${month}-01`;
+      if (endInput) endInput.value = todayStr;
+    } else if (type === 'all') {
+      if (startInput) startInput.value = '';
+      if (endInput) endInput.value = '';
+    }
+    this.renderRecordsTable();
+  },
+
+  getFilteredRecords() {
+    const filterMode = document.getElementById('filterMode')?.value || 'ALL';
+    const startDate = document.getElementById('filterStartDate')?.value || '';
+    const endDate = document.getElementById('filterEndDate')?.value || '';
+
+    return this.records.filter((r) => {
+      // 1. Filter Mode (IN / OUT / ALL)
+      if (filterMode !== 'ALL' && r.mode !== filterMode) return false;
+
+      // 2. Filter Rentang Tanggal (YYYY-MM-DD)
+      if (startDate && r.date < startDate) return false;
+      if (endDate && r.date > endDate) return false;
+
+      return true;
+    });
+  },
+
   renderRecordsTable() {
     const tbody = document.getElementById('adminRecordsTable');
     if (!tbody) return;
 
-    const filter = document.getElementById('filterMode')?.value || 'ALL';
-    let filtered = this.records;
-    if (filter !== 'ALL') {
-      filtered = filtered.filter((r) => r.mode === filter);
+    const filtered = this.getFilteredRecords();
+    const labelResult = document.getElementById('filterResultLabel');
+    if (labelResult) {
+      labelResult.textContent = `Menampilkan ${filtered.length} dari ${this.records.length} data`;
     }
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400 text-xs font-semibold">Belum ada riwayat presensi yang sesuai.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400 text-xs font-semibold">Tidak ada riwayat presensi yang sesuai dengan rentang tanggal dan filter ini.</td></tr>`;
       return;
     }
 
@@ -430,14 +473,21 @@ const AdminApp = {
     }
   },
 
+  // Export CSV sesuai rentang tanggal & mode yang sedang difilter
   exportCSV() {
-    if (this.records.length === 0) {
-      alert('Belum ada riwayat absensi untuk diekspor!');
+    const targetRecords = this.getFilteredRecords();
+
+    if (targetRecords.length === 0) {
+      alert('Tidak ada data riwayat presensi yang sesuai dengan filter tanggal yang dipilih untuk diekspor!');
       return;
     }
 
+    const startDate = document.getElementById('filterStartDate')?.value || 'awal';
+    const endDate = document.getElementById('filterEndDate')?.value || 'akhir';
+    const filterMode = document.getElementById('filterMode')?.value || 'ALL';
+
     const headers = ['ID,Nama Pegawai,NIP,Unit/Bidang,Mode,Jam,Tanggal,Status,Akurasi Biometrik'];
-    const rows = this.records.map((r) =>
+    const rows = targetRecords.map((r) =>
       `"${r.id}","${r.name}","${r.nip}","${r.department}","${r.mode}","${r.time}","${r.date}","${r.status}","${r.confidence}%"`
     );
 
@@ -445,7 +495,9 @@ const AdminApp = {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `rekap_presensi_pusharlis_${this.getTodayString()}.csv`);
+
+    const filename = `rekap_presensi_pusharlis_${filterMode}_${startDate}_sd_${endDate}.csv`;
+    link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
