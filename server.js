@@ -55,7 +55,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log('===========================================================');
   console.log('⚡  PT PLN (PERSERO) PUSHARLIS - Face ID Presensi Server  ⚡');
   console.log('===========================================================');
