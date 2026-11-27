@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard - PLN PUSHARLIS Face ID</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          },
+          colors: {
+            pln: {
+              navy: '#061826',
+              blue: '#007799',
+              'blue-dark': '#004d66',
+              cyan: '#00a2b9',
+              yellow: '#ffcc00',
+              gold: '#e6b800'
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Face-API.js untuk Perekaman Wajah & Ekstraksi Biometrik -->
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="bg-[#040e17] text-slate-100 min-h-screen flex flex-col font-sans selection:bg-pln-cyan selection:text-white">
+
+  <!-- ==================== HEADER ADMIN ==================== -->
+  <header class="bg-pln-navy border-b border-pln-cyan/20 sticky top-0 z-40 shadow-xl backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+      
+      <!-- Logo & Brand PLN -->
+      <div class="flex items-center space-x-3.5">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-pln-yellow to-pln-gold p-1 shadow-md shadow-pln-yellow/20 flex items-center justify-center shrink-0">
+          <svg class="w-7 h-7 text-pln-blue fill-current" viewBox="0 0 24 24">
+            <path d="M13 2L3 14h7v8l10-12h-7l3-8z" fill="#007799" stroke="#004d66" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-black text-white text-base tracking-wider">PANEL ADMINISTRATOR</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950 uppercase tracking-wider">ADMIN PUSHARLIS</span>
+          </div>
+          <p class="text-xs text-pln-cyan font-bold tracking-tight">PT PLN (Persero) Pusat Pemeliharaan Ketenagalistrikan</p>
+        </div>
+      </div>
+
+      <!-- Quick Nav & Jam -->
+      <div class="flex items-center space-x-4">
+        <a href="index.html" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs border border-slate-700 transition-all flex items-center space-x-2 shadow-sm">
+          <span>🖥️</span>
+          <span>Buka Layar Kiosk (User)</span>
+        </a>
+
+        <div class="text-right pl-4 border-l border-slate-800 hidden sm:block">
+          <div id="adminClock" class="font-mono text-base font-black text-pln-yellow leading-none">--:--:-- WIB</div>
+          <div id="adminDate" class="text-[11px] text-slate-400 font-medium mt-1">Memuat tanggal...</div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+
+  <!-- ==================== MAIN ADMIN DASHBOARD ==================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- 1. STATISTIK KARTU UTAMA -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-pln-navy/90 p-5 rounded-2xl border border-slate-800 shadow-lg">
+        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Pegawai</div>
+        <div id="admStatTotal" class="text-3xl font-black text-white mt-1">0</div>
+        <div class="text-[11px] text-slate-500 mt-1">Terdaftar dalam Biometrik</div>
+      </div>
+
+      <div class="bg-pln-navy/90 p-5 rounded-2xl border border-slate-800 shadow-lg">
+        <div class="text-xs font-bold text-cyan-400 uppercase tracking-wider">⚡ Hadir Masuk (IN)</div>
+        <div id="admStatIn" class="text-3xl font-black text-cyan-400 mt-1">0</div>
+        <div class="text-[11px] text-slate-500 mt-1">Presensi hari ini</div>
+      </div>
+
+      <div class="bg-pln-navy/90 p-5 rounded-2xl border border-slate-800 shadow-lg">
+        <div class="text-xs font-bold text-amber-400 uppercase tracking-wider">🚪 Hadir Pulang (OUT)</div>
+        <div id="admStatOut" class="text-3xl font-black text-amber-400 mt-1">0</div>
+        <div class="text-[11px] text-slate-500 mt-1">Presensi hari ini</div>
+      </div>
+
+      <div class="bg-pln-navy/90 p-5 rounded-2xl border border-slate-800 shadow-lg">
+        <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider">📊 Total Riwayat Absen</div>
+        <div id="admStatRecords" class="text-3xl font-black text-emerald-400 mt-1">0</div>
+        <div class="text-[11px] text-slate-500 mt-1">Keseluruhan log tersimpan</div>
+      </div>
+    </div>
+
+
+    <!-- 2. TAB NAVIGASI PANEL -->
+    <div class="flex border-b border-slate-800 space-x-2">
+      <button id="tabBtnEmployees" onclick="AdminApp.switchTab('employees')" class="py-3 px-5 font-black text-sm border-b-2 border-pln-cyan text-pln-cyan flex items-center space-x-2 transition-all">
+        <span>👥</span>
+        <span>Manajemen Pegawai (<span id="badgeEmpCount">0</span>)</span>
+      </button>
+
+      <button id="tabBtnRecords" onclick="AdminApp.switchTab('records')" class="py-3 px-5 font-bold text-sm border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2 transition-all">
+        <span>📋</span>
+        <span>Log & Riwayat Presensi (<span id="badgeRecCount">0</span>)</span>
+      </button>
+    </div>
+
+
+    <!-- ==================== TAB 1: MANAJEMEN PEGAWAI ==================== -->
+    <section id="tabEmployees" class="space-y-4">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-pln-navy/60 p-4 rounded-2xl border border-slate-800">
+        <div>
+          <h2 class="text-base font-black text-white">Daftar Pegawai Terdaftar</h2>
+          <p class="text-xs text-slate-400">Pegawai yang tersimpan memiliki data deskriptor biometrik wajah untuk Face ID.</p>
+        </div>
+
+        <button onclick="AdminApp.openRegisterModal()" class="py-2.5 px-4 rounded-xl bg-gradient-to-r from-pln-cyan to-teal-400 hover:from-teal-300 hover:to-pln-cyan text-slate-950 font-black text-xs sm:text-sm shadow-md transition-all flex items-center space-x-2">
+          <span>➕</span>
+          <span>Daftar Pegawai & Rekam Wajah Baru</span>
+        </button>
+      </div>
+
+      <!-- Tabel Pegawai -->
+      <div class="bg-pln-navy rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-950/70 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                <th class="py-3.5 px-4">Foto Wajah</th>
+                <th class="py-3.5 px-4">Nama Pegawai</th>
+                <th class="py-3.5 px-4">NIP</th>
+                <th class="py-3.5 px-4">Unit / Bidang</th>
+                <th class="py-3.5 px-4">Status Biometrik</th>
+                <th class="py-3.5 px-4 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="adminEmployeesTable" class="divide-y divide-slate-800/60 bg-pln-navy/40">
+              <!-- Rendered by admin.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ==================== TAB 2: LOG & RIWAYAT PRESENSI ==================== -->
+    <section id="tabRecords" class="space-y-4 hidden">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-pln-navy/60 p-4 rounded-2xl border border-slate-800">
+        <div>
+          <h2 class="text-base font-black text-white">Riwayat Presensi Biometrik</h2>
+          <p class="text-xs text-slate-400">Semua aktivitas absensi masuk dan pulang pegawai.</p>
+        </div>
+
+        <!-- Filter & Tombol Export -->
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="filterMode" onchange="AdminApp.filterRecords()" class="py-2 px-3 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200">
+            <option value="ALL">Semua Mode (IN & OUT)</option>
+            <option value="IN">Khusus Masuk (IN)</option>
+            <option value="OUT">Khusus Pulang (OUT)</option>
+          </select>
+
+          <button onclick="AdminApp.exportCSV()" class="py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md transition-all flex items-center space-x-1.5">
+            <span>📥</span>
+            <span>Export ke Excel / CSV</span>
+          </button>
+
+          <button onclick="AdminApp.clearRecords()" class="py-2 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/30 transition-all">
+            🗑️ Bersihkan Log
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabel Riwayat Presensi -->
+      <div class="bg-pln-navy rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div class="overflow-x-auto max-h-[560px] overflow-y-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-950/70 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 sticky top-0 z-10 backdrop-blur">
+                <th class="py-3 px-4">Snapshot</th>
+                <th class="py-3 px-4">Pegawai</th>
+                <th class="py-3 px-4">Mode</th>
+                <th class="py-3 px-4">Waktu</th>
+                <th class="py-3 px-4">Tanggal</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4">Akurasi</th>
+                <th class="py-3 px-4 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="adminRecordsTable" class="divide-y divide-slate-800/60 bg-pln-navy/40">
+              <!-- Rendered by admin.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- ==================== MODAL REGISTRASI PEGAWAI BARU ==================== -->
+  <div id="modalRegister" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden animate-fade-in">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative">
+      
+      <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+        <div>
+          <h3 class="font-black text-white text-base">Daftar Pegawai & Rekam Wajah Baru</h3>
+          <p class="text-xs text-slate-400">PLN Pusat Pemeliharaan Ketenagalistrikan</p>
+        </div>
+        <button onclick="AdminApp.closeRegisterModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+
+      <form id="formRegister" onsubmit="AdminApp.submitRegister(event)" class="space-y-4">
+        
+        <!-- Webcam Preview -->
+        <div class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-black border-2 border-dashed border-slate-700 flex items-center justify-center">
+          <video id="regVideo" autoplay muted playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
+          <img id="regPreview" src="" class="hidden w-full h-full object-cover transform -scale-x-100" />
+          <canvas id="regCanvas" class="hidden"></canvas>
+        </div>
+
+        <div class="text-center">
+          <div id="regStatusBadge" class="text-xs text-slate-400">Arahkan wajah pas di dalam kotak kamera</div>
+          <div class="mt-2.5 flex justify-center space-x-2">
+            <button type="button" id="btnRegCapture" onclick="AdminApp.captureRegFace()" class="px-5 py-2 rounded-xl bg-pln-cyan hover:bg-teal-400 text-slate-950 font-black text-xs transition-all shadow-md">
+              📸 Ambil Foto Biometrik
+            </button>
+            <button type="button" id="btnRegRetake" onclick="AdminApp.retakeRegFace()" class="hidden px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all">
+              🔄 Foto Ulang
+            </button>
+          </div>
+        </div>
+
+        <!-- Form Input Nama Lengkap Saja -->
+        <div class="space-y-1.5 pt-2">
+          <label class="block text-xs font-bold text-slate-300">Nama Lengkap Pegawai *</label>
+          <input type="text" id="regName" required placeholder="Contoh: Javier Pratama" class="w-full px-4 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 focus:border-pln-cyan focus:outline-none text-white text-xs sm:text-sm font-semibold placeholder-slate-500 transition-all" />
+          <p class="text-[10px] text-slate-500">NIP dan Bidang PLN PUSHARLIS akan digenerate otomatis oleh sistem.</p>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-end space-x-3">
+          <button type="button" onclick="AdminApp.closeRegisterModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">
+            Batal
+          </button>
+          <button type="submit" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pln-cyan to-teal-400 hover:from-teal-300 hover:to-pln-cyan text-slate-950 font-black text-xs sm:text-sm shadow-md transition-all">
+            Simpan Pegawai
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+
+  <!-- Footer -->
+  <footer class="mt-auto py-3.5 border-t border-slate-800/80 bg-pln-navy text-center text-xs text-slate-500">
+    PT PLN (PERSERO) PUSHARLIS &copy; 2026 • Panel Manajemen Administrator
+  </footer>
+
+  <!-- Scripts -->
+  <script src="face-engine.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
