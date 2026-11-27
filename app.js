@@ -543,6 +543,38 @@ const App = {
     }
   },
 
+  // ── AUTENTIKASI ADMIN (user: admin, psswrd: admin123) ──
+  openAdminLoginModal() {
+    const modal = document.getElementById('modalAdminLogin');
+    const errEl = document.getElementById('adminLoginError');
+    if (errEl) errEl.classList.add('hidden');
+    if (modal) {
+      modal.classList.remove('hidden');
+      const userInput = document.getElementById('adminUserInput');
+      if (userInput) setTimeout(() => userInput.focus(), 100);
+    }
+  },
+
+  closeAdminLoginModal() {
+    const modal = document.getElementById('modalAdminLogin');
+    if (modal) modal.classList.add('hidden');
+  },
+
+  submitAdminLogin(e) {
+    e.preventDefault();
+    const user = document.getElementById('adminUserInput').value.trim();
+    const pass = document.getElementById('adminPassInput').value.trim();
+    const errEl = document.getElementById('adminLoginError');
+
+    // Validasi akun admin: user: admin, psswrd: admin123
+    if (user === 'admin' && pass === 'admin123') {
+      sessionStorage.setItem('pln_admin_auth', 'true');
+      window.location.href = 'admin.html';
+    } else {
+      if (errEl) errEl.classList.remove('hidden');
+    }
+  },
+
   playWarning() {
     try {
       if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();

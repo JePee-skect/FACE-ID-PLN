@@ -19,6 +19,7 @@ const AdminApp = {
   },
 
   init() {
+    this.checkAuth();
     this.loadStorage();
     this.initClock();
     this.renderStats();
@@ -30,6 +31,42 @@ const AdminApp = {
         console.log('⚡ PLN Admin: Face Engine Siap.');
       });
     }
+  },
+
+  // ── AUTENTIKASI ADMIN (user: admin, psswrd: admin123) ──
+  checkAuth() {
+    const isAuth = sessionStorage.getItem('pln_admin_auth') === 'true';
+    const overlay = document.getElementById('adminAuthOverlay');
+    if (!isAuth) {
+      if (overlay) {
+        overlay.classList.remove('hidden');
+        const uInput = document.getElementById('directUserInput');
+        if (uInput) setTimeout(() => uInput.focus(), 150);
+      }
+    } else {
+      if (overlay) overlay.classList.add('hidden');
+    }
+  },
+
+  submitDirectLogin(e) {
+    e.preventDefault();
+    const user = document.getElementById('directUserInput').value.trim();
+    const pass = document.getElementById('directPassInput').value.trim();
+    const errEl = document.getElementById('directLoginError');
+
+    // Validasi akun admin: user: admin, psswrd: admin123
+    if (user === 'admin' && pass === 'admin123') {
+      sessionStorage.setItem('pln_admin_auth', 'true');
+      const overlay = document.getElementById('adminAuthOverlay');
+      if (overlay) overlay.classList.add('hidden');
+    } else {
+      if (errEl) errEl.classList.remove('hidden');
+    }
+  },
+
+  logout() {
+    sessionStorage.removeItem('pln_admin_auth');
+    window.location.href = 'index.html';
   },
 
   loadStorage() {
