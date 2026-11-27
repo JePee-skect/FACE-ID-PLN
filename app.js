@@ -179,35 +179,82 @@ const App = {
     setInterval(update, 1000);
   },
 
-  // Kamera Utama Scanner
+  // Kamera Utama Scanner dengan Multi-Constraint Fallback
   async initCamera() {
     const video = document.getElementById('scannerVideo');
     const canvas = document.getElementById('scannerCanvas');
+    const notice = document.getElementById('cameraNotice');
+    const statusEl = document.getElementById('scannerStatusText');
     if (!video) return;
 
     this.stopMainCamera();
 
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (notice) {
+        notice.classList.remove('hidden');
+        notice.innerHTML = `⚠️ <strong>Browser Tidak Mendukung Webcam:</strong> Harap buka melalui <code>localhost:3001</code> atau browser modern yang mendukung MediaDevices.`;
+      }
+      return;
+    }
+
+    const tryConstraints = [
+      { video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false },
+      { video: { facingMode: 'user' }, audio: false },
+      { video: true, audio: false }
+    ];
+
+    let stream = null;
+    let errorDetail = null;
+
+    for (const c of tryConstraints) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(c);
+        if (stream) break;
+      } catch (e) {
+        errorDetail = e;
+      }
+    }
+
+    if (!stream) {
+      console.warn('Akses kamera tidak diizinkan atau sedang dipakai aplikasi lain:', errorDetail);
+      if (notice) {
+        notice.classList.remove('hidden');
+        notice.innerHTML = `⚠️ <strong>Akses Kamera Belum Aktif:</strong> Pastikan izin kamera pada browser Anda diizinkan (klik ikon setelan/kamera di URL bar) dan kamera tidak sedang dipakai aplikasi lain (Zoom/Teams). <button onclick="App.initCamera()" class="underline font-bold text-pln-cyan ml-1">Coba Lagi</button>`;
+      }
+      if (statusEl) {
+        statusEl.innerHTML = `<span class="cursor-pointer" onclick="App.initCamera()">🔴 Klik Di Sini untuk Mengaktifkan Kamera</span>`;
+      }
+      return;
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
-        audio: false
-      });
       this.videoStream = stream;
+      video.muted = true;
+      video.setAttribute('playsinline', '');
       video.srcObject = stream;
 
+      // Jalankan play secara langsung dan tangani promise
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // Autoplay terkadang membutuhkan interaksi
+          video.onloadeddata = () => video.play().catch(() => {});
+        });
+      }
+
       video.onloadedmetadata = () => {
-        video.play().catch((e) => console.warn('Video play delayed:', e));
+        video.play().catch(() => {});
       };
 
       this.isScanning = true;
       this.startScanLoop(video, canvas);
 
-      const notice = document.getElementById('cameraNotice');
       if (notice) notice.classList.add('hidden');
+      if (statusEl && !this.scanCooldown) {
+        statusEl.innerHTML = `⚪ Arahkan wajah Anda ke pemindai kamera...`;
+      }
     } catch (err) {
-      console.warn('Akses kamera tidak diizinkan atau sedang dipakai aplikasi lain:', err);
-      const notice = document.getElementById('cameraNotice');
-      if (notice) notice.classList.remove('hidden');
+      console.warn('Error saat mengaktifkan stream kamera:', err);
     }
   },
 
@@ -217,6 +264,8 @@ const App = {
       this.videoStream.getTracks().forEach((track) => track.stop());
       this.videoStream = null;
     }
+    const video = document.getElementById('scannerVideo');
+    if (video) video.srcObject = null;
   },
 
   // Scanning Loop - Non-overlapping RequestAnimationFrame for Smooth 60 FPS
