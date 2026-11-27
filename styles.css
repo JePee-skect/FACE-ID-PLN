@@ -1,0 +1,126 @@
+/* PLN PUSHARLIS Face ID - Custom Styling & Electrical Biometric Animations */
+
+:root {
+  --pln-blue: #007799;
+  --pln-blue-dark: #004d66;
+  --pln-cyan: #00a2b9;
+  --pln-yellow: #ffcc00;
+  --pln-red: #e52d27;
+}
+
+@keyframes electricPulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(0, 162, 185, 0.4), inset 0 0 15px rgba(0, 162, 185, 0.2);
+    border-color: rgba(0, 162, 185, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 204, 0, 0.6), inset 0 0 20px rgba(0, 162, 185, 0.4);
+    border-color: rgba(255, 204, 0, 0.9);
+  }
+}
+
+@keyframes laserScan {
+  0% {
+    top: 0%;
+    opacity: 0.9;
+  }
+  50% {
+    top: 98%;
+    opacity: 0.4;
+  }
+  100% {
+    top: 0%;
+    opacity: 0.9;
+  }
+}
+
+.pln-scanner-container {
+  position: relative;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  background: #061826;
+  border: 2px solid rgba(0, 162, 185, 0.4);
+}
+
+.pln-scanline {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #00a2b9, #ffcc00, #00a2b9, transparent);
+  box-shadow: 0 0 14px #00a2b9, 0 0 24px #ffcc00;
+  animation: laserScan 2.2s ease-in-out infinite;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.pln-oval-target {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 220px;
+  height: 280px;
+  border: 2px dashed rgba(0, 162, 185, 0.6);
+  border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
+  pointer-events: none;
+  animation: electricPulse 3.5s infinite;
+}
+
+.corner-bracket {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: #ffcc00;
+  border-style: solid;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.bracket-tl {
+  top: 16px;
+  left: 16px;
+  border-width: 4px 0 0 4px;
+  border-top-left-radius: 8px;
+}
+
+.bracket-tr {
+  top: 16px;
+  right: 16px;
+  border-width: 4px 4px 0 0;
+  border-top-right-radius: 8px;
+}
+
+.bracket-bl {
+  bottom: 16px;
+  left: 16px;
+  border-width: 0 0 4px 4px;
+  border-bottom-left-radius: 8px;
+}
+
+.bracket-br {
+  bottom: 16px;
+  right: 16px;
+  border-width: 0 4px 4px 0;
+  border-bottom-right-radius: 8px;
+}
+
+.matched-bracket .corner-bracket {
+  border-color: #10b981;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
