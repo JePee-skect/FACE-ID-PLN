@@ -59,9 +59,9 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 220px;
-  height: 280px;
-  border: 2px dashed rgba(0, 162, 185, 0.6);
+  width: 250px;
+  height: 320px;
+  border: 2px dashed rgba(0, 162, 185, 0.65);
   border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
   pointer-events: none;
   animation: electricPulse 3.5s infinite;
