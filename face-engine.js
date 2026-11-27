@@ -1,6 +1,7 @@
 /**
  * PLN PUSHARLIS - Ultra-Fast Biometric Face Engine
  * Dioptimalkan untuk 60 FPS, Latensi Rendah (<10ms), Anti-Crash & Multi-Tier Detection
+ * v2.1 - Removed skin-color spatial detector (Tier 3) to prevent CCTV false positives
  */
 
 class FaceEngine {
@@ -37,7 +38,7 @@ class FaceEngine {
           this.faceApiInstance.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]);
         this.isFaceApiReady = true;
-        console.log('⚡ PLN FaceID: Face-API Neural Network Siap (Mode Cepat 160px).');
+        console.log('⚡ PLN FaceID: Face-API Neural Network Siap (Mode Presisi 224px).');
         return true;
       }
     } catch (e) {
@@ -46,14 +47,33 @@ class FaceEngine {
     return true;
   }
 
-  // Deteksi Wajah Instan Multi-Tier
+  // Validasi Geometri Wajah Manusia (Mencegah Dinding / Monitor CCTV Terdeteksi sebagai Wajah)
+  validateFaceGeometry(box, vw, vh) {
+    if (!box) return false;
+    const aspect = box.height / (box.width || 1);
+
+    // 1. Wajah manusia selalu proporsional oval/vertikal (tinggi antara 1.05x s/d 1.85x lebar)
+    // Monitor CCTV dan dinding biasanya berbentuk persegi panjang melebar (landscape)
+    if (aspect < 1.05 || aspect > 1.85) return false;
+
+    // 2. Wajah tidak boleh mencakup lebih dari 75% layar (mencakup seisi ruangan)
+    if (box.width > vw * 0.75 || box.height > vh * 0.85) return false;
+
+    // 3. Wajah tidak boleh terlalu kecil (noise/glitch)
+    if (box.width < 50 || box.height < 60) return false;
+
+    return true;
+  }
+
+  // Deteksi Wajah Nyata — TIER 1 (Native) + TIER 2 (Face-API) ONLY
+  // Tier 3 (skin-color spatial detector) dihapus karena terlalu banyak false positive pada monitor CCTV
   async detectFace(video, overlayCanvas) {
     if (!video || video.readyState < 2 || video.paused || video.ended) return null;
 
     const vw = video.videoWidth || 640;
     const vh = video.videoHeight || 480;
 
-    // TIER 1: Native Chromium FaceDetector (~3ms)
+    // TIER 1: Native Chromium FaceDetector (~3ms, hardware accelerated)
     if (this.nativeDetector) {
       try {
         const detectedFaces = await this.nativeDetector.detect(video);
@@ -65,25 +85,27 @@ class FaceEngine {
             width: Math.min(vw - f.x, f.width),
             height: Math.min(vh - f.y, f.height)
           };
-          const descriptor = this.extractFastDescriptor(video, box);
-          const liveness = this.checkLiveness(video, box);
-          return { box, score: 0.98, descriptor, liveness };
+          if (this.validateFaceGeometry(box, vw, vh)) {
+            const descriptor = this.extractFastDescriptor(video, box);
+            const liveness = this.checkLiveness(video, box);
+            return { box, score: 0.98, descriptor, liveness };
+          }
         }
       } catch (err) {
-        // Fallback
+        // Lanjut ke Tier 2
       }
     }
 
-    // TIER 2: Face-API dengan Input Size 160 (Sangat ringan ~15ms)
+    // TIER 2: Face-API Neural Network (TinyFaceDetector, presisi lebih tinggi)
     if (this.isFaceApiReady && this.faceApiInstance) {
       try {
         const options = new this.faceApiInstance.TinyFaceDetectorOptions({
-          inputSize: 160,
-          scoreThreshold: 0.30
+          inputSize: 224,
+          scoreThreshold: 0.45
         });
 
         const res = await this.faceApiInstance.detectSingleFace(video, options);
-        if (res) {
+        if (res && res.box) {
           const { box } = res;
           const cleanBox = {
             x: Math.max(0, box.x),
@@ -91,98 +113,26 @@ class FaceEngine {
             width: Math.min(vw - box.x, box.width),
             height: Math.min(vh - box.y, box.height)
           };
-          const descriptor = this.extractFastDescriptor(video, cleanBox);
-          const liveness = this.checkLiveness(video, cleanBox);
-          return {
-            box: cleanBox,
-            score: res.score || 0.95,
-            descriptor,
-            liveness
-          };
+          if (this.validateFaceGeometry(cleanBox, vw, vh)) {
+            const descriptor = this.extractFastDescriptor(video, cleanBox);
+            const liveness = this.checkLiveness(video, cleanBox);
+            return {
+              box: cleanBox,
+              score: res.score || 0.95,
+              descriptor,
+              liveness
+            };
+          }
         }
       } catch (e) {
-        // Fallback
+        // Tidak ada wajah terdeteksi
       }
     }
 
-    // TIER 3: Adaptive High-Speed Spatial Chromatic Tracker
-    const spatial = this.detectAdaptiveSpatial(video, vw, vh);
-    if (spatial) {
-      spatial.liveness = this.checkLiveness(video, spatial.box);
-    } else {
-      this.resetLiveness();
-    }
-    return spatial;
-  }
-
-  // Adaptive Spatial Tracker (Tahan terhadap pencahayaan redup, backlight, & lampu ruangan)
-  detectAdaptiveSpatial(video, vw, vh) {
-    const sw = 160;
-    const sh = 120;
-    this.offscreenCanvas.width = sw;
-    this.offscreenCanvas.height = sh;
-    this.offscreenCtx.drawImage(video, 0, 0, sw, sh);
-
-    const imgData = this.offscreenCtx.getImageData(0, 0, sw, sh);
-    const data = imgData.data;
-
-    let skinCount = 0;
-    let sumX = 0;
-    let sumY = 0;
-    let minX = sw, maxX = 0, minY = sh, maxY = 0;
-
-    for (let y = Math.floor(sh * 0.08); y < sh * 0.92; y += 2) {
-      for (let x = Math.floor(sw * 0.12); x < sw * 0.88; x += 2) {
-        const idx = (y * sw + x) * 4;
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-
-        // Chromatic Color Model yang adaptif
-        const total = r + g + b || 1;
-        const nr = r / total;
-        const ng = g / total;
-
-        const isSkin =
-          (nr > 0.33 && nr < 0.62 && ng > 0.23 && ng < 0.42) ||
-          (r > 60 && g > 30 && b > 15 && r >= g && (r - b) > 5);
-
-        if (isSkin) {
-          skinCount++;
-          sumX += x;
-          sumY += y;
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
-        }
-      }
-    }
-
-    // Ambang batas responsif
-    if (skinCount < 30) return null;
-
-    const scaleX = vw / sw;
-    const scaleY = vh / sh;
-
-    const centerX = (sumX / skinCount) * scaleX;
-    const centerY = (sumY / skinCount) * scaleY;
-
-    let rawW = Math.max((maxX - minX) * scaleX, vw * 0.22);
-    let rawH = Math.max((maxY - minY) * scaleY, rawW * 1.25);
-
-    rawW = Math.min(rawW, vw * 0.65);
-    rawH = Math.min(rawH, vh * 0.80);
-
-    const box = {
-      x: Math.max(0, Math.min(vw - rawW, centerX - rawW / 2)),
-      y: Math.max(0, Math.min(vh - rawH, centerY - rawH / 2)),
-      width: rawW,
-      height: rawH
-    };
-
-    const descriptor = this.extractFastDescriptor(video, box);
-    return { box, score: 0.94, descriptor };
+    // JIKA TIDAK ADA WAJAH MANUSIA NYATA: RETURN NULL
+    // Tidak ada fallback ke detektor warna kulit / monitor CCTV
+    this.resetLiveness();
+    return null;
   }
 
   // Ekstraksi 128-D Biometric Feature Vector Super Cepat
@@ -250,8 +200,8 @@ class FaceEngine {
     return this.extractFastDescriptor(videoOrCanvas, box);
   }
 
-  // Pencocokan Biometrik Cepat
-  findBestMatch(currentDesc, employees, threshold = 0.60) {
+  // Pencocokan Biometrik Akurat (Threshold Ketat 0.75 — lebih aman dari default 0.60)
+  findBestMatch(currentDesc, employees, threshold = 0.75) {
     if (!currentDesc || !employees || employees.length === 0) return null;
 
     let best = null;
