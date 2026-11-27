@@ -233,6 +233,10 @@ const App = {
       video.setAttribute('playsinline', '');
       video.srcObject = stream;
 
+      video.onclick = () => {
+        if (video.paused) video.play().catch(() => {});
+      };
+
       // Jalankan play secara langsung dan tangani promise
       const playPromise = video.play();
       if (playPromise !== undefined) {
@@ -244,6 +248,10 @@ const App = {
 
       video.onloadedmetadata = () => {
         video.play().catch(() => {});
+      };
+
+      video.onplay = () => {
+        if (notice) notice.classList.add('hidden');
       };
 
       this.isScanning = true;
@@ -693,14 +701,18 @@ const App = {
   closeRegisterModal() {
     document.getElementById('modalRegister').classList.add('hidden');
 
-    // 2. Matikan kamera registrasi
+    // 2. Matikan kamera registrasi dan bersihkan stream
     if (this.regStream) {
       this.regStream.getTracks().forEach((t) => t.stop());
       this.regStream = null;
     }
+    const regVideo = document.getElementById('regVideo');
+    if (regVideo) regVideo.srcObject = null;
 
-    // 3. Nyalakan kembali kamera scanner utama
-    this.initCamera();
+    // 3. Beri jeda 400ms agar hardware webcam dilepas penuh oleh Windows sebelum dinyalakan ulang
+    setTimeout(() => {
+      this.initCamera();
+    }, 400);
   },
 
   async startRegCamera() {
