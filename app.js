@@ -344,8 +344,8 @@ const App = {
     const statusEl = document.getElementById('scannerStatusText');
     const bracket = document.getElementById('scannerBrackets');
 
-    // Threshold 0.75 untuk pencocokan biometrik (lebih ketat, cegah false positive)
-    const match = window.faceEngine.findBestMatch(detection.descriptor, this.employees, 0.75);
+    // Threshold 0.70 untuk pencocokan biometrik (presisi tinggi & aman)
+    const match = window.faceEngine.findBestMatch(detection.descriptor, this.employees, 0.70);
 
     if (match) {
       // ── PROTEKSI LIVENESS / ANTI-SPOOFING (CEGAH FOTO HP / CETAK) ──

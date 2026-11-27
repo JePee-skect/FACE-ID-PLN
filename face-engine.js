@@ -47,20 +47,21 @@ class FaceEngine {
     return true;
   }
 
-  // Validasi Geometri Wajah Manusia (Mencegah Dinding / Monitor CCTV Terdeteksi sebagai Wajah)
+  // Validasi Geometri Bounding Box Wajah
   validateFaceGeometry(box, vw, vh) {
-    if (!box) return false;
-    const aspect = box.height / (box.width || 1);
+    if (!box || !box.width || !box.height) return false;
+    const aspect = box.height / box.width;
 
-    // 1. Wajah manusia selalu proporsional oval/vertikal (tinggi antara 1.05x s/d 1.85x lebar)
-    // Monitor CCTV dan dinding biasanya berbentuk persegi panjang melebar (landscape)
-    if (aspect < 1.05 || aspect > 1.85) return false;
+    // 1. Wajah manusia dalam detektor (TinyFaceDetector / Native) berkisar dari kotak s/d agak lonjong
+    // TinyFaceDetector selalu menghasilkan kotak (aspect ~ 1.0). Native detector berkisar 0.75 - 1.4
+    // Hanya tolak jika bentuknya ekstrem tidak wajar (misal garis mendatar pipih atau tiang tegak)
+    if (aspect < 0.65 || aspect > 1.65) return false;
 
-    // 2. Wajah tidak boleh mencakup lebih dari 75% layar (mencakup seisi ruangan)
-    if (box.width > vw * 0.75 || box.height > vh * 0.85) return false;
+    // 2. Wajah tidak boleh mencakup lebih dari 90% layar (mencegah glitch seluruh layar)
+    if (box.width > vw * 0.90 || box.height > vh * 0.90) return false;
 
-    // 3. Wajah tidak boleh terlalu kecil (noise/glitch)
-    if (box.width < 50 || box.height < 60) return false;
+    // 3. Wajah tidak boleh terlalu kecil (noise/glitch di bawah 40px)
+    if (box.width < 40 || box.height < 40) return false;
 
     return true;
   }
@@ -101,7 +102,7 @@ class FaceEngine {
       try {
         const options = new this.faceApiInstance.TinyFaceDetectorOptions({
           inputSize: 224,
-          scoreThreshold: 0.45
+          scoreThreshold: 0.35
         });
 
         const res = await this.faceApiInstance.detectSingleFace(video, options);
@@ -201,7 +202,7 @@ class FaceEngine {
   }
 
   // Pencocokan Biometrik Akurat (Threshold Ketat 0.75 — lebih aman dari default 0.60)
-  findBestMatch(currentDesc, employees, threshold = 0.75) {
+  findBestMatch(currentDesc, employees, threshold = 0.70) {
     if (!currentDesc || !employees || employees.length === 0) return null;
 
     let best = null;
